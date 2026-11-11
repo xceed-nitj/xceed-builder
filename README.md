@@ -31,7 +31,20 @@ The same `run.js` runs in both places. Switching is configuration only.
    request workflows to require approval for all outside collaborators.
 2. Copy this folder's contents to the root of that repo (including
    `.github/workflows/job.yml`) and push.
-3. *Settings → Secrets and variables → Actions*, add:
+3. Protect the secrets. Org members get write access to every org repo, and
+   anyone with write access could push a workflow that prints a repository
+   secret. So:
+   - *Settings → Environments → New environment* `builder`; under
+     *Deployment branches and tags* choose "Selected branches and tags" and
+     add `main`.
+   - *Settings → Rules → Rulesets → New branch ruleset* on the default
+     branch with "Restrict updates", "Restrict deletions" and "Block force
+     pushes", bypass for the Repository admin role.
+   - Put every secret below in the **builder environment** (*Settings →
+     Environments → builder → Add environment secret*), never as a
+     repository secret.
+
+   Add these environment secrets:
    - `XCEED_URL` = `https://xceed.nitj.ac.in`
    - `DEVWS_WORKER_SECRET` = a long random value (`openssl rand -hex 32`)
    - `ORG_TOKEN` = the organisation token (create repos, manage collaborators,

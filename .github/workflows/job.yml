@@ -23,6 +23,12 @@ permissions: {}
 
 jobs:
   run:
+    # The secrets live in the "builder" environment, which only the main
+    # branch may use, and only repo admins can change main (a ruleset). Org
+    # members have write access to this repo through the org's default
+    # permission; without this, a workflow pushed to any other branch could
+    # print ORG_TOKEN. Never add repository-level secrets.
+    environment: builder
     runs-on: ubuntu-latest
     timeout-minutes: 100
     steps:
