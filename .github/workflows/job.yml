@@ -1,0 +1,45 @@
+# XCEED Dev Workspace: runs ONE job that XCEED asked for.
+#
+# This repo is public, so these rules are deliberate (and checked by
+# server/tests/unit/devwsBuilderWorkflow.test.js in the XCEED repo):
+#   - The only trigger is workflow_dispatch, which needs write access to this
+#     repo. No push / pull_request triggers: outsiders cannot start runs.
+#   - The only input is a job id. Everything else comes from XCEED over https.
+#   - run.js prints nothing; its output is thrown away here as well. The job's
+#     log goes to XCEED only.
+#   - No artifacts, no caches.
+name: job
+run-name: devws job
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job id from XCEED
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run job
+        env:
+          JOB_ID: ${{ inputs.job }}
+          XCEED_URL: ${{ secrets.XCEED_URL }}
+          DEVWS_WORKER_SECRET: ${{ secrets.DEVWS_WORKER_SECRET }}
+          ORG_TOKEN: ${{ secrets.ORG_TOKEN }}
+          # Optional: previews get a copy of this (test) database. Only read from.
+          PREVIEW_SOURCE_MONGO_URL: ${{ secrets.PREVIEW_SOURCE_MONGO_URL }}
+          PREVIEW_SOURCE_EXCLUDE: ${{ secrets.PREVIEW_SOURCE_EXCLUDE }}
+        run: |
+          if node run.js --job "$JOB_ID" >/dev/null 2>&1; then echo "job finished"; else echo "job did not finish (details are in XCEED)"; exit 1; fi

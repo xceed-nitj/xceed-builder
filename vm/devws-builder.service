@@ -1,0 +1,18 @@
+[Unit]
+Description=XCEED Dev Workspace builder (polls XCEED for jobs)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=devws
+Group=devws
+WorkingDirectory=/opt/devws-builder
+EnvironmentFile=/etc/devws-builder.env
+ExecStart=/usr/bin/node run.js --poll
+Restart=always
+RestartSec=10
+# Jobs keep their files private to this account.
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

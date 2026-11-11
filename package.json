@@ -1,0 +1,15 @@
+{
+  "name": "xceed-dev-workspace-builder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runs XCEED Dev Workspace jobs (workspace repos, previews, PRs) on GitHub Actions or on a VM.",
+  "license": "UNLICENSED",
+  "main": "run.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "job": "node run.js --job",
+    "poll": "node run.js --poll"
+  }
+}
