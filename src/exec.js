@@ -42,7 +42,10 @@ function run(cmd, args, { cwd, env, log, timeoutMs = 20 * 60 * 1000, check = tru
     child.on("close", (code) => {
       clearTimeout(timer);
       if (check && code !== 0) {
-        const err = new Error(`${cmd} ${args[0] || ""} exited with ${code}`);
+        // The last stderr line is what actually went wrong; without it the
+        // developer's page only says "exited with 1".
+        const tail = stderr.trim().split("\n").pop().slice(0, 300);
+        const err = new Error(`${cmd} ${args[0] || ""} exited with ${code}${tail ? `: ${tail}` : ""}`);
         err.code = code;
         err.stdout = stdout;
         err.stderr = stderr;
