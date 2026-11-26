@@ -123,6 +123,15 @@ async function waitFor(check, timeoutMs, stepMs = 2000) {
   return false;
 }
 
+function tcpOpen(port) {
+  return new Promise((resolve) => {
+    const sock = net.connect({ host: "127.0.0.1", port, timeout: 3000 });
+    sock.on("connect", () => { sock.destroy(); resolve(true); });
+    sock.on("error", () => resolve(false));
+    sock.on("timeout", () => { sock.destroy(); resolve(false); });
+  });
+}
+
 function httpOk(port) {
   return new Promise((resolve) => {
     const req = http.get({ host: "127.0.0.1", port, path: "/", timeout: 3000 }, (res) => {
@@ -267,7 +276,10 @@ async function preview(ctx) {
     const mongoUrl = `mongodb://127.0.0.1:${ports.mongo}/xceed_preview`;
     const mongoUp = await waitFor(async () => {
       const r = await run("docker", ["exec", mongoName, "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"], { check: false, log: ctx.log });
-      return r.code === 0;
+      // The image first runs a temporary server that only listens inside the
+      // container, so a ping from in there can pass before the real one is up
+      // on the published port. Wait for that port too, or the seed is refused.
+      return r.code === 0 && (await tcpOpen(ports.mongo));
     }, 90000);
     if (!mongoUp) throw new Error("The preview database did not start");
 
