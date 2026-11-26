@@ -32,6 +32,15 @@ function portsFor(slot) {
   return { app: 18000 + slot * 10, proxy: 18001 + slot * 10, mongo: 27100 + slot };
 }
 
+// Kills everything the preview account runs on this machine, and nothing in a
+// container. `useradd --system` hands out 999 first, the same uid mongo:7 runs
+// mongod as, and container processes show on the host under their own uid.
+// So a bare `pkill -u` also killed the preview database (`--ns 1 --nslist pid`
+// keeps it to processes in the host's own process namespace).
+function killAccount(ctx, user) {
+  return run("sudo", ["-n", "pkill", "-KILL", "-u", user, "--ns", "1", "--nslist", "pid"], { check: false, log: ctx.log });
+}
+
 async function ensureUser(ctx, user) {
   const exists = await run("id", ["-u", user], { check: false, log: ctx.log });
   if (exists.code === 0) return;
@@ -243,7 +252,7 @@ async function preview(ctx) {
     stop(tunnel);
     stop(server);
     if (proxy) proxy.close();
-    await run("sudo", ["-n", "pkill", "-KILL", "-u", user], { check: false, log: ctx.log });
+    await killAccount(ctx, user);
     await run("docker", ["rm", "-f", mongoName], { check: false, log: ctx.log });
     await unblockNetwork(ctx, user);
     await run("sudo", ["-n", "rm", "-rf", appDir], { check: false, log: ctx.log });
@@ -296,7 +305,7 @@ async function preview(ctx) {
     let dataSource = "made-up logins only";
     const sourceUrl = process.env.PREVIEW_SOURCE_MONGO_URL;
     if (sourceUrl) {
-      await run("sudo", ["-n", "pkill", "-KILL", "-u", user], { check: false, log: ctx.log });
+      await killAccount(ctx, user);
       ctx.log.line("Copying the test database");
       try {
         const copyStart = Date.now();
