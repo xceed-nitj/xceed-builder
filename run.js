@@ -120,7 +120,27 @@ async function runJob({ claimed, client, cfg, slot, runnerId }) {
 
 async function jobMode(id) {
   if (!/^[0-9a-f]{24}$/.test(String(id))) throw new Error("Bad job id");
-  const cfg = config();
+  let cfg;
+  try {
+    cfg = config();
+  } catch (err) {
+    // A missing secret used to end the run in silence and leave the assignment on "Creating
+    // repo" for ever. XCEED_URL and the worker secret are enough to tell XCEED what is wrong,
+    // so the admin sees it on the assignment (never in this possibly public log).
+    if (process.env.XCEED_URL && process.env.DEVWS_WORKER_SECRET) {
+      try {
+        const client = createClient({ baseUrl: process.env.XCEED_URL, secret: process.env.DEVWS_WORKER_SECRET, runnerId: "actions:setup" });
+        const res = await client.claim(id);
+        if (res.status === 200) {
+          const error = `The builder is not set up: ${err.message}. Add it as an environment secret named exactly that on xceed-builder (Settings, Environments, builder).`;
+          await client.complete(id, "failed", error, { error });
+        }
+      } catch {
+        /* XCEED unreachable or the secret is wrong: nothing more can be said from here */
+      }
+    }
+    throw err;
+  }
   const runnerId = `actions:${process.env.GITHUB_RUN_ID || crypto.randomBytes(4).toString("hex")}`;
   const client = createClient({ baseUrl: cfg.xceedUrl, secret: cfg.secret, runnerId });
   const res = await client.claim(id);
@@ -181,4 +201,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { runJob, HANDLERS };
+module.exports = { runJob, jobMode, HANDLERS };
