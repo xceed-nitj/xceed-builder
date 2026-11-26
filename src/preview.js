@@ -272,7 +272,7 @@ async function preview(ctx) {
     await blockNetwork(ctx, user);
 
     ctx.log.line("Starting a throwaway database");
-    await run("docker", ["run", "-d", "--rm", "--name", mongoName, "-p", `127.0.0.1:${ports.mongo}:27017`, "mongo:7"], { log: ctx.log });
+    await run("docker", ["run", "-d", "--name", mongoName, "-p", `127.0.0.1:${ports.mongo}:27017`, "mongo:7"], { log: ctx.log });
     const mongoUrl = `mongodb://127.0.0.1:${ports.mongo}/xceed_preview`;
     const mongoUp = await waitFor(async () => {
       const r = await run("docker", ["exec", mongoName, "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"], { check: false, log: ctx.log });
@@ -281,7 +281,14 @@ async function preview(ctx) {
       // on the published port. Wait for that port too, or the seed is refused.
       return r.code === 0 && (await tcpOpen(ports.mongo));
     }, 90000);
-    if (!mongoUp) throw new Error("The preview database did not start");
+    // Not --rm above on purpose: if the container dies, its exit code and logs
+    // are what explain it, and cleanup() removes it either way.
+    const dbState = await run("docker", ["inspect", "-f", "status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}", mongoName], { check: false, log: ctx.log });
+    if (!mongoUp || !/status=running/.test(String(dbState.stdout || ""))) {
+      await run("docker", ["logs", "--tail", "40", mongoName], { check: false, log: ctx.log });
+      await run("free", ["-m"], { check: false, log: ctx.log });
+      throw new Error("The preview database did not stay up. See the log for its last lines.");
+    }
 
     // A copy of the shared test database, when one is configured. Done while
     // the preview account runs nothing (pkill below), since the address is
